@@ -47,6 +47,11 @@ class SpillCharts(QWidget):
         self.currentFile = 0
         self.position = 0
 
+        if not (os.path.exists("SpillVertexMeans")):
+            path = os.path.join("SpillVertexMeans")
+            os.mkdir(path)
+
+
         self.filenames = sorted([filename for filename in os.listdir("Reconstructed") if filename.endswith(".npy")])
         self.fileCount = len(self.filenames)
         while (self.fileCount > self.currentFile):

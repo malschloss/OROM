@@ -39,6 +39,10 @@ class StripCharts(QWidget):
         
         self.reader = None
 
+        if not (os.path.exists("EventVertexData")):
+            path = os.path.join("EventVertexData")
+            os.mkdir(path)
+
         self.MAX_SPILLS = 5
         self.xScatter = []
         self.yScatter = []
@@ -76,7 +80,7 @@ class StripCharts(QWidget):
             self.reader.grab = "SPILL"
             self.sidData = self.reader.read_data()[0]
             self.spillString = str(self.sidData)
-            np.savez('EventVertexData/' + spillString + '.npz',self.eidData,self.vtxData,self.vtyData,self.vtzData)
+            np.savez('EventVertexData/' + self.spillString + '.npz',self.eidData,self.vtxData,self.vtyData,self.vtzData)
             self.currentFile += 1
             self.position = self.currentFile % self.MAX_SPILLS
             layout=self.layout()
@@ -111,7 +115,7 @@ class StripCharts(QWidget):
                 self.vtyPlot.addItem(self.yScatter[self.position])
                 self.zScatter[self.position].setData(self.eidData,self.vtzData)
                 self.vtzPlot.addItem(self.zScatter[self.position])
-                np.savez('EventVertexData/' + spillString + '.npz',self.eidData,self.vtxData,self.vtyData,self.vtzData)
+                np.savez('EventVertexData/' + self.spillString + '.npz',self.eidData,self.vtxData,self.vtyData,self.vtzData)
                 self.currentFile += 1
                 self.position = self.currentFile % self.MAX_SPILLS
                 layout=self.layout()
