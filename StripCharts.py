@@ -3,9 +3,10 @@
 import sys
 import os
 import numpy as np
-from pyqtgraph.Qt import QtGui, QtCore
+import time
+from pyqtgraph.Qt import QtGui
 from random import randrange, uniform
-from PyQt5 import QtTest
+from PyQt5 import QtCore
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLineEdit
 from DataReader import DataReader
 import pyqtgraph as pg
@@ -36,12 +37,6 @@ class StripCharts(QWidget):
         layout.addWidget(self.vtzPlot)
         self.setLayout(layout)
         
-        self.runButton=QPushButton("Run")
-        self.runButton.setCheckable(True)
-        self.runButton.setChecked(False)
-        self.runButton.clicked.connect(self.UpdateChart)
-        layout.addWidget(self.runButton)
-        
         self.reader = None
 
         if not (os.path.exists("EventVertexData")):
@@ -49,8 +44,8 @@ class StripCharts(QWidget):
             os.mkdir(path)
             with open("EventVertexData/README.txt",'w') as README:
                 README.write("This directory contains npz files which each contain 4 numpy arrays saved as npy files.\n")
-                README.write("The 1st array (index 0) contains event IDs.\n")
-                README.write("The 2nd, 3rd, and 4th arrays (indices 1,2, and 3) contain X, Y, and Z vertex positions respectively.\n")
+                README.write("The 0th array contains event IDs.\n")
+                README.write("The 1st, 2nd, and 3rd arrays contain X, Y, and Z vertex positions respectively.\n")
                 README.write("The arrays are saved such that the Nth event ID corresponds to the Nth instance of vertex data.\n")
 
         self.MAX_SPILLS = 5
@@ -61,7 +56,7 @@ class StripCharts(QWidget):
         self.position = 0
         self.spillsDisplayed = 0
 
-        self.filenames = sorted([filename for filename in os.listdir("Reconstructed") if filename.endswith(".npy")])
+        self.filenames = sorted([filename for filename in os.listdir("Reconstructed") if filename.endswith(".npz")])
         self.fileCount = len(self.filenames)
         self.reader = DataReader([os.path.join("Reconstructed", filename) for filename in self.filenames], "EVENT")
         while (self.currentFile < self.fileCount):
@@ -69,70 +64,23 @@ class StripCharts(QWidget):
                 self.vtxPlot.removeItem(self.xScatter[self.position])
                 self.vtyPlot.removeItem(self.yScatter[self.position])
                 self.vtzPlot.removeItem(self.zScatter[self.position])
-            self.reader.current_index = self.currentFile
-            self.reader.grab = "EVENT"
-            self.eidData = self.reader.read_data()
-            self.reader.grab = "XVERTEX"
-            self.vtxData = self.reader.read_data()
-            self.reader.grab = "YVERTEX"
-            self.vtyData = self.reader.read_data()
-            self.reader.grab = "ZVERTEX"
-            self.vtzData = self.reader.read_data()
-            if (self.spillsDisplayed < self.MAX_SPILLS):
-                self.xScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(0,0,255,255)))
-                self.yScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(255,0,0,255)))
-                self.zScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(0,255,0,255)))
-                self.spillsDisplayed += 1
-            self.xScatter[self.position].setData(self.eidData,self.vtxData)
-            self.vtxPlot.addItem(self.xScatter[self.position])
-            self.yScatter[self.position].setData(self.eidData,self.vtyData)
-            self.vtyPlot.addItem(self.yScatter[self.position])
-            self.zScatter[self.position].setData(self.eidData,self.vtzData)
-            self.vtzPlot.addItem(self.zScatter[self.position])
-            self.reader.grab = "SPILL"
-            self.sidData = self.reader.read_data()[0]
-            self.spillString = str(self.sidData)
-            np.savez('EventVertexData/' + self.spillString + '.npz',self.eidData,self.vtxData,self.vtyData,self.vtzData)
-            self.currentFile += 1
-            self.position = self.currentFile % self.MAX_SPILLS
-            layout=self.layout()
+            self.DrawSpill()
+     
+        timer = QtCore.QTimer(self)
+        timer.timeout.connect(self.UpdateChart)
+        timer.start(500)    
 
     def UpdateChart(self):
-        self.dt=500
-        while self.runButton.isChecked():
-            self.filenames = sorted([filename for filename in os.listdir("Reconstructed") if filename.endswith(".npy")])
-            self.fileCount = len(self.filenames)
-            if (self.fileCount > self.currentFile):
-                if (self.currentFile >= self.MAX_SPILLS):
-                    self.vtxPlot.removeItem(self.xScatter[self.position])
-                    self.vtyPlot.removeItem(self.yScatter[self.position])
-                    self.vtzPlot.removeItem(self.zScatter[self.position])
-                self.reader = DataReader([os.path.join("Reconstructed", filename) for filename in self.filenames], "EVENT")
-                self.reader.current_index = self.currentFile
-                self.reader.grab = "EVENT"
-                self.eidData = self.reader.read_data()
-                self.reader.grab = "XVERTEX"
-                self.vtxData = self.reader.read_data()
-                self.reader.grab = "YVERTEX"
-                self.vtyData = self.reader.read_data()
-                self.reader.grab = "ZVERTEX"
-                self.vtzData = self.reader.read_data()
-                if (self.spillsDisplayed < self.MAX_SPILLS):
-                    self.xScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(0,0,255,255)))
-                    self.yScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(255,0,0,255)))
-                    self.zScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(0,255,0,255)))
-                    self.spillsDisplayed+=1
-                self.xScatter[self.position].setData(self.eidData,self.vtxData)
-                self.vtxPlot.addItem(self.xScatter[self.position])
-                self.yScatter[self.position].setData(self.eidData,self.vtyData)
-                self.vtyPlot.addItem(self.yScatter[self.position])
-                self.zScatter[self.position].setData(self.eidData,self.vtzData)
-                self.vtzPlot.addItem(self.zScatter[self.position])
-                np.savez('EventVertexData/' + self.spillString + '.npz',self.eidData,self.vtxData,self.vtyData,self.vtzData)
-                self.currentFile += 1
-                self.position = self.currentFile % self.MAX_SPILLS
-                layout=self.layout()
-            QtTest.QTest.qWait(self.dt)
+        self.filenames = sorted([filename for filename in os.listdir("Reconstructed") if filename.endswith(".npz")])
+        self.fileCount = len(self.filenames)
+        if (self.fileCount > self.currentFile):
+            if (self.currentFile >= self.MAX_SPILLS):
+                self.vtxPlot.removeItem(self.xScatter[self.position])
+                self.vtyPlot.removeItem(self.yScatter[self.position])
+                self.vtzPlot.removeItem(self.zScatter[self.position])
+            self.reader = DataReader([os.path.join("Reconstructed", filename) for filename in self.filenames], "EVENT")
+            self.DrawSpill()
+
 
     def SetWindow(self):
         if self.txtin.text().isdigit():
@@ -147,35 +95,38 @@ class StripCharts(QWidget):
             self.currentFile = max(self.currentFile-self.MAX_SPILLS,0)
             self.position = 0
             self.spillsDisplayed = 0
-            self.filenames = sorted([filename for filename in os.listdir("Reconstructed") if filename.endswith(".npy")])
+            self.filenames = sorted([filename for filename in os.listdir("Reconstructed") if filename.endswith(".npz")])
             self.fileCount = len(self.filenames)
             self.reader = DataReader([os.path.join("Reconstructed", filename) for filename in self.filenames], "EVENT")
             while (self.currentFile < self.fileCount):
-                self.reader.current_index = self.currentFile
-                self.reader.grab = "EVENT"
-                self.eidData = self.reader.read_data()
-                self.reader.grab = "XVERTEX"
-                self.vtxData = self.reader.read_data()
-                self.reader.grab = "YVERTEX"
-                self.vtyData = self.reader.read_data()
-                self.reader.grab = "ZVERTEX"
-                self.vtzData = self.reader.read_data()
-                if (self.spillsDisplayed < self.MAX_SPILLS):
-                    self.xScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(0,0,255,255)))
-                    self.yScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(255,0,0,255)))
-                    self.zScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(0,255,0,255)))
-                    self.spillsDisplayed += 1
-                self.xScatter[self.position].setData(self.eidData,self.vtxData)
-                self.vtxPlot.addItem(self.xScatter[self.position])
-                self.yScatter[self.position].setData(self.eidData,self.vtyData)
-                self.vtyPlot.addItem(self.yScatter[self.position])
-                self.zScatter[self.position].setData(self.eidData,self.vtzData)
-                self.vtzPlot.addItem(self.zScatter[self.position])
-                self.reader.grab = "SPILL"
-                self.sidData = self.reader.read_data()[0]
-                self.spillString = str(self.sidData)
-                np.savez('EventVertexData/' + self.spillString + '.npz',self.eidData,self.vtxData,self.vtyData,self.vtzData)
-                self.currentFile += 1
-                self.position += 1
-                self.position = self.position % self.MAX_SPILLS
-                layout=self.layout()
+                self.DrawSpill()
+    
+    def DrawSpill(self):
+        self.reader.current_index = self.currentFile
+        self.reader.grab = "EVENT"
+        self.eidData = self.reader.read_data()
+        self.reader.grab = "XVERTEX"
+        self.vtxData = self.reader.read_data()
+        self.reader.grab = "YVERTEX"
+        self.vtyData = self.reader.read_data()
+        self.reader.grab = "ZVERTEX"
+        self.vtzData = self.reader.read_data()
+        if (self.spillsDisplayed < self.MAX_SPILLS):
+            self.xScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(0,0,255,255)))
+            self.yScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(255,0,0,255)))
+            self.zScatter.append(pg.ScatterPlotItem(size=10,brush=pg.mkBrush(0,255,0,255)))
+            self.spillsDisplayed += 1
+        self.xScatter[self.position].setData(self.eidData,self.vtxData)
+        self.vtxPlot.addItem(self.xScatter[self.position])
+        self.yScatter[self.position].setData(self.eidData,self.vtyData)
+        self.vtyPlot.addItem(self.yScatter[self.position])
+        self.zScatter[self.position].setData(self.eidData,self.vtzData)
+        self.vtzPlot.addItem(self.zScatter[self.position])
+        self.reader.grab = "SPILL"
+        self.sidData = self.reader.read_data()[0]
+        self.spillString = str(self.sidData)
+        np.savez('EventVertexData/' + self.spillString + '.npz',self.eidData,self.vtxData,self.vtyData,self.vtzData)
+        self.currentFile += 1
+        self.position += 1
+        self.position = self.position % self.MAX_SPILLS
+        layout=self.layout()
